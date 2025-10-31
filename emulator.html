@@ -170,7 +170,18 @@
             90% { transform: translateY(10px); opacity: 0; }
             100% { transform: translateY(0); opacity: 1; }
         }
-
+        
+        /* BSOD Styles */
+        #bsod-screen {
+            background-color: #0078D7; /* Windows 10/11 Blue */
+            font-family: 'Segoe UI', sans-serif;
+            color: white;
+            /* Ensure the BSOD overlays everything */
+            z-index: 9999; 
+            text-align: left;
+            padding-left: 10%; /* Move content slightly from the edge */
+            align-items: flex-start;
+        }
     </style>
 </head>
 <body>
@@ -281,6 +292,27 @@
 
     </div>
 
+    <!-- 4. BSOD SCREEN (Blue Screen of Death) -->
+    <div id="bsod-screen" class="fixed inset-0 flex flex-col justify-center items-center p-8" 
+         style="background-color: #0078D7; font-family: 'Segoe UI', sans-serif; color: white; display: none; z-index: 9999;">
+        <div class="max-w-xl w-full">
+            <div class="text-[8rem] leading-none mb-4">:(</div>
+            <div class="text-2xl font-light leading-snug">
+                Your PC ran into a problem and needs to restart. We're just collecting some error info, and then we'll restart for you.
+            </div>
+            <div id="bsod-percentage" class="text-xl mt-8">0% complete</div>
+            <div class="mt-12 text-lg">
+                For more information about this issue and possible fixes, visit <span class="font-semibold">https://www.windows.com/stopcode</span>
+            </div>
+            <div class="text-lg">
+                If you call a support person, give them this info: <span class="font-semibold">Stop Code: EMULATOR_CRASH_0x81_BSOD_TRIGGER</span>
+            </div>
+            <button id="bsod-restart-btn" class="mt-8 bg-gray-600 hover:bg-gray-700 text-white font-bold py-3 px-6 rounded transition duration-150 text-base shadow-lg" onclick="hideBSOD()">
+                Click here to "Restart"
+            </button>
+        </div>
+    </div>
+
     <script>
         // --- DATA DEFINITION ---
 
@@ -299,9 +331,10 @@
             { title: "Skype", icon: "📞", color: "#00AFF0", size: "medium" },
             { title: "Groove Music", icon: "🎵", color: "#FF4301", size: "wide" },
             
-            // Group 3: Productivity
+            // Group 3: Productivity & Danger!
             { title: "Office", icon: "💼", color: "#E03F3F", size: "medium" },
             { title: "OneNote", icon: "📝", color: "#80397B", size: "medium" },
+            { title: "BSOD", icon: "💀", color: "#6C0000", size: "medium", app: "BSOD" }, // New BSOD Tile
             { title: "News", icon: "📰", color: "#F08A00", size: "wide" },
             { title: "Settings", icon: "⚙️", color: "#000000", size: "medium", app: "Settings" },
         ];
@@ -318,8 +351,12 @@
         const calculatorContent = document.getElementById('calculator-app-content');
         const currentTimeElement = document.getElementById('current-time');
         const tileContainer = document.getElementById('start-screen-tiles');
+        const bsodScreen = document.getElementById('bsod-screen');
+        const bsodPercentage = document.getElementById('bsod-percentage');
+        const bsodRestartBtn = document.getElementById('bsod-restart-btn');
         
         let currentState = 'booting';
+        let bsodInterval = null;
         
         // --- FUNCTIONS ---
 
@@ -327,6 +364,7 @@
          * Converts the TILE_DATA array into HTML tile elements.
          */
         function renderTiles() {
+            tileContainer.innerHTML = ''; // Clear existing tiles if any
             TILE_DATA.forEach(tile => {
                 const tileDiv = document.createElement('div');
                 tileDiv.className = `tile-container size-${tile.size} cursor-pointer`;
@@ -334,6 +372,7 @@
                 tileDiv.setAttribute('data-app', tile.app || tile.title);
                 tileDiv.setAttribute('data-color', tile.color);
                 tileDiv.setAttribute('title', tile.title);
+                // Call openApp with special handling for the BSOD app
                 tileDiv.onclick = () => openApp(tile.app || tile.title, tile.color);
 
                 const contentDiv = document.createElement('div');
@@ -404,6 +443,12 @@
          * @param {string} color - The accent color of the app tile.
          */
         function openApp(appName, color) {
+            // Check for BSOD trigger
+            if (appName === 'BSOD') {
+                showBSOD();
+                return;
+            }
+
             startScreen.classList.add('hidden');
             appView.classList.remove('hidden');
             appView.style.display = 'flex';
@@ -456,6 +501,61 @@
         }
 
         /**
+         * Tries to simulate a basic BSOD event.
+         */
+        function showBSOD() {
+            currentState = 'bsod';
+            // Hide everything else
+            document.getElementById('os-container').style.display = 'none';
+            bsodScreen.style.display = 'flex';
+            bsodPercentage.textContent = '0% complete';
+            bsodRestartBtn.style.display = 'none';
+
+            let progress = 0;
+            
+            // Function to update the percentage bar
+            const updateBSODProgress = () => {
+                if (progress < 100) {
+                    // Increase progress randomly but slowly
+                    progress += Math.floor(Math.random() * 5) + 1;
+                    progress = Math.min(progress, 100);
+                    bsodPercentage.textContent = `${progress}% complete`;
+                }
+                
+                if (progress >= 100) {
+                    clearInterval(bsodInterval);
+                    bsodPercentage.textContent = '100% complete';
+                    // Show restart button after completion
+                    setTimeout(() => {
+                        bsodRestartBtn.style.display = 'block';
+                    }, 500); 
+                }
+            };
+            
+            // Start the interval for the progress bar
+            bsodInterval = setInterval(updateBSODProgress, 500);
+        }
+        
+        /**
+         * Hides the BSOD and returns to the Start Screen.
+         */
+        function hideBSOD() {
+            if (bsodInterval) {
+                clearInterval(bsodInterval);
+            }
+            bsodScreen.style.display = 'none';
+            document.getElementById('os-container').style.display = 'block';
+            goToStartScreen();
+            
+            // Restart the boot sequence animation
+            bootScreen.classList.remove('hidden');
+            bootScreen.style.opacity = '1';
+            startScreen.classList.add('hidden');
+            bootUp();
+        }
+
+
+        /**
          * Simulated Calculator Logic (very basic)
          */
         function setupCalculator() {
@@ -485,6 +585,11 @@
                         operator = null;
                         firstOperand = null;
                         waitingForSecond = false;
+                    } else if (value === '+/-') { // Handle +/- toggle
+                        currentInput = (parseFloat(currentInput) * -1).toString();
+                    } else if (value === '%') { // Handle percentage
+                        currentInput = (parseFloat(currentInput) / 100).toString();
+                        waitingForSecond = true;
                     } else if (['+', '-', '*', '/', '='].includes(value)) {
                         if (firstOperand === null) {
                             firstOperand = parseFloat(currentInput);
@@ -493,11 +598,21 @@
                             if (operator === '+') firstOperand += secondOperand;
                             if (operator === '-') firstOperand -= secondOperand;
                             if (operator === '*') firstOperand *= secondOperand;
-                            if (operator === '/') firstOperand /= secondOperand;
+                            if (operator === '/') {
+                                if (secondOperand === 0) {
+                                    currentInput = 'Error: Div by 0';
+                                    operator = null;
+                                    firstOperand = null;
+                                    display.textContent = currentInput;
+                                    return;
+                                }
+                                firstOperand /= secondOperand;
+                            }
                         }
 
                         operator = value === '=' ? null : value;
-                        currentInput = firstOperand.toString().length > 10 ? firstOperand.toExponential(4) : firstOperand.toString();
+                        // Limit display length or use exponential notation
+                        currentInput = firstOperand.toString().length > 15 ? firstOperand.toExponential(4) : firstOperand.toString();
                         waitingForSecond = true;
                     }
 
