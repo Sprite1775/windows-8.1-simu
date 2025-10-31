@@ -1,0 +1,558 @@
+!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>(skype for windows 8.1)</title>
+    <!-- Load Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Use Inter Font -->
+    <style>
+        body { font-family: 'Inter', sans-serif; background-color: #f7f9fb; }
+        .video-container {
+            position: relative;
+            background-color: #1a202c;
+            border-radius: 0.75rem;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+        }
+        #localVideo {
+            width: 100%;
+            height: auto;
+            border-radius: 0.75rem;
+            transform: scaleX(-1); /* Mirror the local video */
+        }
+        #remoteVideo {
+            width: 100%;
+            height: 100%;
+            border-radius: 0.75rem;
+            object-fit: contain;
+            background-color: black;
+            min-height: 400px;
+        }
+        #localVideoWrapper {
+            position: absolute;
+            top: 1rem;
+            right: 1rem;
+            width: 20%;
+            max-width: 150px;
+            z-index: 10;
+            border: 2px solid white;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.5);
+        }
+        .btn-call {
+            transition: all 0.2s;
+        }
+        .btn-call:hover {
+            transform: translateY(-1px);
+        }
+    </style>
+</head>
+<body class="p-4 sm:p-8">
+
+    <!-- Main Container -->
+    <div class="max-w-4xl mx-auto">
+        <h1 class="text-3xl font-extrabold text-gray-800 mb-2 text-center">skype 7.40</h1>
+        <p class="text-gray-500 mb-6 text-center">A simple Skype-like communication alternative using WebRTC and Firebase Firestore.</p>
+
+        <!-- Current User ID Display -->
+        <div class="bg-indigo-100 p-3 rounded-lg mb-6 text-center shadow-md">
+            <p class="text-sm font-semibold text-indigo-700">Your User ID:</p>
+            <p id="userIdDisplay" class="font-mono text-lg text-indigo-900 break-all">Initializing...</p>
+        </div>
+
+        <!-- Video Display Area -->
+        <div class="video-container mb-6 relative">
+            <!-- Remote Video (Large) -->
+            <video id="remoteVideo" autoplay playsinline></video>
+            <!-- Local Video (Small Picture-in-Picture) -->
+            <div id="localVideoWrapper" class="rounded-lg overflow-hidden">
+                <video id="localVideo" muted autoplay playsinline></video>
+            </div>
+
+            <!-- Connection Status Overlay -->
+            <div id="statusMessage" class="absolute inset-0 flex items-center justify-center bg-gray-900 bg-opacity-80 rounded-lg text-white text-xl font-medium opacity-100 transition-opacity duration-500">
+                Awaiting Camera/Microphone Permission...
+            </div>
+        </div>
+
+        <!-- Control Panel -->
+        <div class="bg-white p-6 rounded-xl shadow-2xl border border-gray-100">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <!-- Call/Connect Section -->
+                <div class="md:col-span-2 space-y-3">
+                    <label for="calleeId" class="block text-sm font-medium text-gray-700">Recipient's User ID:</label>
+                    <input type="text" id="calleeId" placeholder="Enter ID of person to call..." class="w-full p-3 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 font-mono text-sm shadow-inner" />
+                    <div class="flex space-x-3">
+                        <button id="callButton" class="flex-1 btn-call bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-4 rounded-lg shadow-lg disabled:opacity-50 transition duration-150">
+                            Start Call
+                        </button>
+                        <button id="hangupButton" class="flex-1 btn-call bg-red-500 hover:bg-red-600 text-white font-bold py-3 px-4 rounded-lg shadow-lg disabled:opacity-50 transition duration-150" disabled>
+                            End Call
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Call Status/Actions -->
+                <div class="md:col-span-1 border-t md:border-t-0 md:border-l pt-4 md:pt-0 md:pl-4 border-gray-200">
+                    <h3 class="text-lg font-semibold text-gray-800 mb-3">Controls</h3>
+                    <div class="space-y-2">
+                        <button id="toggleAudio" class="w-full text-left flex items-center justify-between p-2 bg-gray-100 rounded-lg hover:bg-gray-200 transition">
+                            <span class="font-medium text-gray-700">Toggle Microphone</span>
+                            <span id="audioIcon" class="text-xl text-green-500">🎤</span>
+                        </button>
+                        <button id="toggleVideo" class="w-full text-left flex items-center justify-between p-2 bg-gray-100 rounded-lg hover:bg-gray-200 transition">
+                            <span class="font-medium text-gray-700">Toggle Camera</span>
+                            <span id="videoIcon" class="text-xl text-green-500">📹</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Debug/Error Console -->
+        <div class="mt-6 p-4 bg-gray-800 rounded-lg text-gray-300 text-sm overflow-auto max-h-40">
+            <h3 class="font-bold text-white mb-2">Logs:</h3>
+            <pre id="log" class="whitespace-pre-wrap"></pre>
+        </div>
+
+        <!-- Hidden Modal for Confirmations/Alerts -->
+        <div id="modal" class="fixed inset-0 bg-gray-900 bg-opacity-75 hidden items-center justify-center p-4 z-50">
+            <div class="bg-white p-6 rounded-xl shadow-2xl max-w-sm w-full">
+                <h3 id="modalTitle" class="text-xl font-bold text-gray-800 mb-3"></h3>
+                <p id="modalMessage" class="text-gray-600 mb-4"></p>
+                <div class="flex justify-end space-x-3">
+                    <button id="modalConfirm" class="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2 px-4 rounded-lg transition duration-150">
+                        OK
+                    </button>
+                    <button id="modalCancel" class="bg-gray-300 hover:bg-gray-400 text-gray-800 font-semibold py-2 px-4 rounded-lg transition duration-150 hidden">
+                        Cancel
+                    </button>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Firebase Imports -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, collection, setDoc, getDoc, updateDoc, deleteDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // Global Firestore & Auth Variables
+        let db;
+        let auth;
+        let userId;
+
+        // Configuration Globals
+        const ICE_SERVERS = {
+            iceServers: [
+                { urls: 'stun:stun.l.google.com:19302' }
+            ],
+        };
+        const CALL_COLLECTION = 'calls';
+
+        // DOM Elements
+        const localVideo = document.getElementById('localVideo');
+        const remoteVideo = document.getElementById('remoteVideo');
+        const callButton = document.getElementById('callButton');
+        const hangupButton = document.getElementById('hangupButton');
+        const calleeIdInput = document.getElementById('calleeId');
+        const userIdDisplay = document.getElementById('userIdDisplay');
+        const statusMessage = document.getElementById('statusMessage');
+        const logElement = document.getElementById('log');
+        const toggleAudioButton = document.getElementById('toggleAudio');
+        const toggleVideoButton = document.getElementById('toggleVideo');
+        const audioIcon = document.getElementById('audioIcon');
+        const videoIcon = document.getElementById('videoIcon');
+
+        // State Variables
+        let localStream = null;
+        let peerConnection = null;
+        let callId = null;
+
+        // --- Utility Functions ---
+
+        /**
+         * Logs a message to the on-screen console.
+         * @param {string} message The message to log.
+         */
+        function log(message) {
+            console.log(message);
+            const now = new Date().toLocaleTimeString();
+            logElement.innerHTML += `[${now}] ${message}\n`;
+            logElement.scrollTop = logElement.scrollHeight;
+        }
+
+        /**
+         * Shows a simple modal message (alert replacement).
+         * @param {string} title
+         * @param {string} message
+         */
+        function showModal(title, message) {
+            document.getElementById('modalTitle').textContent = title;
+            document.getElementById('modalMessage').textContent = message;
+            document.getElementById('modalCancel').classList.add('hidden');
+            document.getElementById('modalConfirm').onclick = () => {
+                document.getElementById('modal').classList.add('hidden');
+            };
+            document.getElementById('modal').classList.remove('hidden');
+        }
+
+        // --- Firebase & Auth Setup ---
+
+        /**
+         * Initializes Firebase and authenticates the user.
+         */
+        async function initializeFirebase() {
+            try {
+                // Global variables from Canvas environment
+                const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+                const firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
+                const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+
+                const app = initializeApp(firebaseConfig);
+                db = getFirestore(app);
+                auth = getAuth(app);
+
+                if (initialAuthToken) {
+                    await signInWithCustomToken(auth, initialAuthToken);
+                } else {
+                    await signInAnonymously(auth);
+                }
+
+                userId = auth.currentUser?.uid || crypto.randomUUID();
+                userIdDisplay.textContent = userId;
+                log(`Firebase initialized. User authenticated with ID: ${userId}`);
+
+                // The path for public/shared data is:
+                // /artifacts/{appId}/public/data/{COLLECTION_NAME}/{documentId}
+                const callPath = `/artifacts/${appId}/public/data/${CALL_COLLECTION}`;
+                log(`Firestore Call Path: ${callPath}`);
+
+                await getLocalMedia();
+                registerListeners();
+                // Start listening for incoming calls immediately after authentication
+                onIncomingCall();
+
+            } catch (error) {
+                log(`Error during Firebase initialization or authentication: ${error.message}`);
+                showModal('Initialization Error', 'Could not initialize Firebase or authenticate. Check console for details.');
+            }
+        }
+
+        // --- Media and UI Controls ---
+
+        /**
+         * Gets the user's camera and microphone streams.
+         */
+        async function getLocalMedia() {
+            try {
+                localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+                localVideo.srcObject = localStream;
+                statusMessage.textContent = 'Ready to call. Share your User ID with a friend!';
+                statusMessage.classList.add('opacity-0');
+            } catch (error) {
+                log(`Error getting user media: ${error.message}`);
+                statusMessage.textContent = 'ERROR: Cannot access camera/mic. Grant permission to use app.';
+                showModal('Media Error', 'Failed to get local camera and microphone access. Please ensure permissions are granted.');
+            }
+        }
+
+        /**
+         * Toggles the local audio track.
+         */
+        function toggleAudio() {
+            if (!localStream) return;
+            const audioTrack = localStream.getAudioTracks()[0];
+            if (audioTrack) {
+                audioTrack.enabled = !audioTrack.enabled;
+                const state = audioTrack.enabled ? 'ON' : 'OFF';
+                log(`Audio Toggled: ${state}`);
+                audioIcon.textContent = audioTrack.enabled ? '🎤' : '🔇';
+                toggleAudioButton.classList.toggle('bg-red-200', !audioTrack.enabled);
+                toggleAudioButton.classList.toggle('bg-gray-100', audioTrack.enabled);
+            }
+        }
+
+        /**
+         * Toggles the local video track.
+         */
+        function toggleVideo() {
+            if (!localStream) return;
+            const videoTrack = localStream.getVideoTracks()[0];
+            if (videoTrack) {
+                videoTrack.enabled = !videoTrack.enabled;
+                const state = videoTrack.enabled ? 'ON' : 'OFF';
+                log(`Video Toggled: ${state}`);
+                videoIcon.textContent = videoTrack.enabled ? '📹' : '📸';
+                toggleVideoButton.classList.toggle('bg-red-200', !videoTrack.enabled);
+                toggleVideoButton.classList.toggle('bg-gray-100', videoTrack.enabled);
+            }
+        }
+
+        /**
+         * Registers DOM event listeners.
+         */
+        function registerListeners() {
+            callButton.addEventListener('click', createCall);
+            hangupButton.addEventListener('click', hangup);
+            toggleAudioButton.addEventListener('click', toggleAudio);
+            toggleVideoButton.addEventListener('click', toggleVideo);
+        }
+
+
+        // --- WebRTC Core Functions ---
+
+        /**
+         * Sets up the RTCPeerConnection object.
+         */
+        function setupPeerConnection() {
+            peerConnection = new RTCPeerConnection(ICE_SERVERS);
+            log('RTCPeerConnection created.');
+
+            // Add local stream tracks to the Peer Connection
+            localStream.getTracks().forEach(track => {
+                peerConnection.addTrack(track, localStream);
+            });
+
+            // Handle ICE candidates to send to the remote peer
+            peerConnection.onicecandidate = async event => {
+                if (event.candidate) {
+                    const candidateData = event.candidate.toJSON();
+                    const targetCollection = collection(db, `/artifacts/${__app_id}/public/data/${CALL_COLLECTION}/${callId}/${userId === callId ? 'callerCandidates' : 'calleeCandidates'}`);
+                    await addCandidate(targetCollection, candidateData);
+                    log(`New ICE candidate sent to Firestore: ${candidateData.candidate.substring(0, 30)}...`);
+                }
+            };
+
+            // When remote tracks are received, attach them to the remote video element
+            peerConnection.ontrack = event => {
+                log('Remote track received.');
+                if (remoteVideo.srcObject !== event.streams[0]) {
+                    remoteVideo.srcObject = event.streams[0];
+                }
+                statusMessage.textContent = 'CONNECTED!';
+                statusMessage.classList.add('opacity-0');
+            };
+
+            peerConnection.oniceconnectionstatechange = () => {
+                log(`ICE connection state change: ${peerConnection.iceConnectionState}`);
+                if (peerConnection.iceConnectionState === 'disconnected' || peerConnection.iceConnectionState === 'failed') {
+                    showModal('Connection Lost', 'The call was disconnected.');
+                    hangup();
+                }
+            };
+        }
+
+        // --- Signaling (Firestore) Functions ---
+
+        /**
+         * Adds an ICE candidate to the Firestore collection.
+         */
+        async function addCandidate(collectionRef, candidateData) {
+            // Using setDoc to create a document with a unique ID based on a timestamp
+            const candidateDocRef = doc(collectionRef, Date.now().toString());
+            await setDoc(candidateDocRef, candidateData);
+        }
+
+        /**
+         * Creates a new call document in Firestore and sets up the caller's side.
+         */
+        async function createCall() {
+            if (!localStream) {
+                showModal('Cannot Start Call', 'Local media is not available. Check permissions.');
+                return;
+            }
+
+            const calleeId = calleeIdInput.value.trim();
+            if (!calleeId || calleeId === userId) {
+                showModal('Invalid Recipient', 'Please enter a valid, different User ID to call.');
+                return;
+            }
+
+            // The call document ID is the ID of the person being called (the "callee")
+            callId = calleeId;
+            setupPeerConnection();
+
+            // 1. Create the offer
+            const offer = await peerConnection.createOffer();
+            await peerConnection.setLocalDescription(offer);
+            log(`Created and set local offer: ${offer.type}`);
+
+            // 2. Create the call document in Firestore
+            const callDoc = doc(db, `/artifacts/${__app_id}/public/data/${CALL_COLLECTION}/${callId}`);
+            await setDoc(callDoc, {
+                callerId: userId,
+                offer: {
+                    type: offer.type,
+                    sdp: offer.sdp,
+                },
+                status: 'pending' // custom status for tracking
+            });
+            log(`Call document created in Firestore for ID: ${callId}`);
+
+            // 3. Set up listeners for the Callee's answer and ICE candidates
+            listenForAnswer(callDoc);
+            listenForRemoteCandidates('calleeCandidates');
+
+            // Update UI
+            callButton.disabled = true;
+            hangupButton.disabled = false;
+            statusMessage.textContent = `Calling ${callId}...`;
+            statusMessage.classList.remove('opacity-0');
+        }
+
+        /**
+         * Listens for the remote user's (callee's) answer in the Firestore call document.
+         * @param {object} callDocRef Firestore Document Reference for the call.
+         */
+        function listenForAnswer(callDocRef) {
+            onSnapshot(callDocRef, async snapshot => {
+                const data = snapshot.data();
+                if (!peerConnection || !data || !data.answer || peerConnection.currentRemoteDescription) {
+                    return; // Ignore if no data, no answer, or already set
+                }
+
+                log('Received answer from callee.');
+                const answer = new RTCSessionDescription(data.answer);
+                await peerConnection.setRemoteDescription(answer);
+
+                statusMessage.textContent = 'Establishing Connection...';
+            });
+        }
+
+        /**
+         * Listens for remote ICE candidates for the current call.
+         * @param {string} candidateCollectionName 'callerCandidates' or 'calleeCandidates'.
+         */
+        function listenForRemoteCandidates(candidateCollectionName) {
+            const candidatesCollection = collection(db, `/artifacts/${__app_id}/public/data/${CALL_COLLECTION}/${callId}/${candidateCollectionName}`);
+            onSnapshot(candidatesCollection, snapshot => {
+                snapshot.docChanges().forEach(change => {
+                    if (change.type === 'added') {
+                        const candidate = new RTCIceCandidate(change.doc.data());
+                        peerConnection.addIceCandidate(candidate);
+                        log(`Remote ICE candidate added: ${candidate.candidate.substring(0, 30)}...`);
+                    }
+                });
+            });
+        }
+
+        /**
+         * Listens for a new call document that targets the current user.
+         */
+        function onIncomingCall() {
+            const callDoc = doc(db, `/artifacts/${__app_id}/public/data/${CALL_COLLECTION}/${userId}`);
+            onSnapshot(callDoc, async snapshot => {
+                const data = snapshot.data();
+                if (!data || !data.offer) {
+                    // Call document was deleted (hangup) or is empty
+                    return;
+                }
+
+                if (!peerConnection) {
+                    // An incoming call is detected, and we don't have an active connection
+                    callId = userId; // The document ID is our own ID, used for listening to candidates
+                    showModal(
+                        'Incoming Call',
+                        `Call detected from User ID: ${data.callerId}. Click OK to accept.`
+                    );
+                    document.getElementById('modalConfirm').onclick = () => {
+                        document.getElementById('modal').classList.add('hidden');
+                        answerCall(data);
+                    };
+                }
+            });
+        }
+
+        /**
+         * Accepts an incoming call offer and sends back an answer.
+         * @param {object} offerData The data from the Firestore call document.
+         */
+        async function answerCall(offerData) {
+            setupPeerConnection(); // Initialize PC for the callee
+
+            const offer = new RTCSessionDescription(offerData.offer);
+            await peerConnection.setRemoteDescription(offer);
+            log('Set remote offer for incoming call.');
+
+            // 1. Create and set the answer
+            const answer = await peerConnection.createAnswer();
+            await peerConnection.setLocalDescription(answer);
+            log(`Created and set local answer: ${answer.type}`);
+
+            // 2. Update the Firestore call document with the answer
+            const callDoc = doc(db, `/artifacts/${__app_id}/public/data/${CALL_COLLECTION}/${userId}`);
+            await updateDoc(callDoc, {
+                answer: {
+                    type: answer.type,
+                    sdp: answer.sdp,
+                },
+                status: 'active'
+            });
+            log('Sent answer to Firestore.');
+
+            // 3. Listen for the caller's ICE candidates
+            listenForRemoteCandidates('callerCandidates');
+
+            // Update UI
+            callButton.disabled = true;
+            hangupButton.disabled = false;
+            statusMessage.textContent = `Connected to ${offerData.callerId}.`;
+            statusMessage.classList.remove('opacity-0');
+        }
+
+        /**
+         * Cleans up the call connection and Firestore document.
+         */
+        async function hangup() {
+            if (peerConnection) {
+                peerConnection.close();
+                peerConnection = null;
+            }
+
+            if (localStream) {
+                localStream.getTracks().forEach(track => track.stop());
+                localStream = null;
+            }
+
+            // Attempt to delete the call document and candidates
+            if (callId) {
+                try {
+                    const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+                    const callDocRef = doc(db, `/artifacts/${appId}/public/data/${CALL_COLLECTION}/${callId}`);
+
+                    // Delete the main call document
+                    await deleteDoc(callDocRef);
+                    log(`Call document ${callId} deleted.`);
+
+                    // Note: Deleting subcollections (candidates) must be done manually in production,
+                    // but for this simple demo, deleting the main doc is enough to signal hangup.
+
+                } catch (error) {
+                    log(`Error deleting call document: ${error.message}`);
+                }
+            }
+
+            // Reset UI and state
+            callId = null;
+            remoteVideo.srcObject = null;
+            callButton.disabled = false;
+            hangupButton.disabled = true;
+            statusMessage.textContent = 'Call Ended. Ready for a new connection.';
+            statusMessage.classList.remove('opacity-0');
+            getLocalMedia(); // Restart media to show local video
+
+            // Reset audio/video toggles
+            audioIcon.textContent = '🎤';
+            videoIcon.textContent = '📹';
+            toggleAudioButton.classList.remove('bg-red-200');
+            toggleVideoButton.classList.remove('bg-red-200');
+        }
+
+        // --- Start Application ---
+        window.onload = initializeFirebase;
+    </script>
+</body>
+</html>
