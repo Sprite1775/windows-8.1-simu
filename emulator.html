@@ -1,0 +1,522 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Windows 8.1 Simulator</title>
+    <!-- Load Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Use Inter as the base font -->
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap');
+        :root {
+            --win-blue: #0078D7;
+            --tile-wide: 330px; /* Approximately 2 tiles + gap */
+            --tile-medium: 160px; /* Approximately 1 tile */
+            --tile-small: 75px; /* Approximately 0.5 tile */
+            --tile-gap: 10px;
+        }
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #000;
+            overflow: hidden; /* Prevent body scroll */
+        }
+        
+        /* Custom Windows 8.1 CSS for Boot Screen and Tiles */
+
+        /* Windows Boot Screen Logo (CSS/SVG approximation) */
+        .windows-logo {
+            width: 120px;
+            height: 120px;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            grid-template-rows: 1fr 1fr;
+            gap: 10px;
+            transform: rotate(45deg); /* Windows 8.1 logo angle */
+        }
+        .windows-logo > div {
+            background-color: #FFFFFF;
+            opacity: 0;
+            animation: logo-fade-in 1.5s ease-out forwards;
+        }
+        .windows-logo > div:nth-child(1) { animation-delay: 0.2s; }
+        .windows-logo > div:nth-child(2) { animation-delay: 0.4s; }
+        .windows-logo > div:nth-child(3) { animation-delay: 0.6s; }
+        .windows-logo > div:nth-child(4) { animation-delay: 0.8s; }
+
+        @keyframes logo-fade-in {
+            from { opacity: 0; transform: scale(0.8); }
+            to { opacity: 1; transform: scale(1); }
+        }
+
+        /* Spinning Dots Loader (Windows 8.1 style) */
+        .loading-spinner {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 20px;
+            margin-top: 50px;
+        }
+        .loading-spinner div {
+            width: 8px;
+            height: 8px;
+            background-color: white;
+            border-radius: 50%;
+            margin: 0 4px;
+            animation: pulse 1.5s infinite ease-in-out;
+        }
+        .loading-spinner div:nth-child(2) { animation-delay: 0.1s; }
+        .loading-spinner div:nth-child(3) { animation-delay: 0.2s; }
+        .loading-spinner div:nth-child(4) { animation-delay: 0.3s; }
+        .loading-spinner div:nth-child(5) { animation-delay: 0.4s; }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 0.2; transform: scale(0.8); }
+            50% { opacity: 1; transform: scale(1.1); }
+        }
+
+        /* Start Screen Grid */
+        #start-screen-tiles {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, var(--tile-medium));
+            grid-auto-rows: var(--tile-medium);
+            gap: var(--tile-gap);
+            padding: 30px;
+            height: 100vh;
+            max-height: 100vh;
+            overflow-y: auto;
+            align-content: start;
+        }
+
+        .tile-container {
+            border-radius: 3px;
+            cursor: pointer;
+            transition: transform 0.1s ease-out;
+            position: relative;
+            user-select: none;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1);
+        }
+
+        .tile-container:hover {
+            transform: scale(1.02);
+            z-index: 10;
+        }
+
+        .tile-container.size-medium {
+            width: var(--tile-medium);
+            height: var(--tile-medium);
+        }
+        .tile-container.size-wide {
+            width: var(--tile-wide);
+            height: var(--tile-medium);
+        }
+        .tile-container.size-large {
+            width: var(--tile-wide);
+            height: var(--tile-wide);
+            grid-column: span 2;
+            grid-row: span 2;
+        }
+        .tile-container.size-small {
+            width: var(--tile-medium);
+            height: var(--tile-small); /* Adjusted small tile height */
+        }
+
+        .tile-content {
+            padding: 10px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            height: 100%;
+            color: white;
+            font-weight: 500;
+        }
+        
+        .tile-icon {
+            font-size: 40px;
+            align-self: flex-start;
+        }
+        .tile-title {
+            font-size: 16px;
+            line-height: 1.2;
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.4);
+        }
+
+        /* App View Styles */
+        #app-view {
+            background-color: #f0f0f0;
+            height: 100vh;
+            width: 100vw;
+            display: none;
+            flex-direction: column;
+        }
+
+        /* Live Tile Effect (for Weather) */
+        .live-tile-update {
+            font-size: 20px;
+            text-align: center;
+            animation: tile-flip 8s infinite ease-in-out;
+            transform-style: preserve-3d;
+        }
+        @keyframes tile-flip {
+            0% { transform: translateY(0); opacity: 1; }
+            20% { transform: translateY(0); opacity: 1; }
+            30% { transform: translateY(-10px); opacity: 0; }
+            35% { transform: translateY(10px); opacity: 0; }
+            50% { transform: translateY(0); opacity: 1; }
+
+            55% { transform: translateY(0); opacity: 1; }
+            75% { transform: translateY(0); opacity: 1; }
+            85% { transform: translateY(-10px); opacity: 0; }
+            90% { transform: translateY(10px); opacity: 0; }
+            100% { transform: translateY(0); opacity: 1; }
+        }
+
+    </style>
+</head>
+<body>
+
+    <!-- Main Container -->
+    <div id="os-container" class="h-screen w-screen transition-all duration-500">
+
+        <!-- 1. BOOT UP SCREEN -->
+        <div id="boot-screen" class="fixed inset-0 flex flex-col justify-center items-center bg-black transition-opacity duration-1000 z-50">
+            <div class="windows-logo">
+                <div class="w-1/2 h-1/2"></div>
+                <div class="w-1/2 h-1/2"></div>
+                <div class="w-1/2 h-1/2"></div>
+                <div class="w-1/2 h-1/2"></div>
+            </div>
+            <div class="loading-spinner">
+                <div></div>
+                <div></div>
+                <div></div>
+                <div></div>
+                <div></div>
+            </div>
+        </div>
+
+        <!-- 2. START SCREEN (Metro/Modern UI) -->
+        <div id="start-screen" class="hidden bg-gray-800 h-screen w-screen">
+            
+            <!-- Start Screen Header/Top Bar (Minimal Windows 8.1) -->
+            <div class="absolute top-0 right-0 p-4 text-white text-sm">
+                <span id="current-time"></span>
+            </div>
+            
+            <div id="start-screen-tiles">
+                <!-- Tiles will be inserted here by JavaScript -->
+            </div>
+
+            <!-- Windows Button in the bottom left (simulated) -->
+            <button id="show-desktop-btn" 
+                    class="absolute bottom-2 left-2 p-3 bg-gray-600 hover:bg-gray-700 text-white rounded-md shadow-lg transition-colors"
+                    onclick="openApp('Desktop', 'bg-blue-900')">
+                <!-- Windows Logo SVG -->
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512" class="w-6 h-6 fill-current">
+                    <path d="M0 93.7l170.5-24.2v247.2L0 340.9V93.7zm170.5 248.5l104.9-14.9V476L170.5 490.9v-248.7zm134.1-175.7c20.3-2.9 33.3-15.6 33.3-33.3V52.9c0-17.7-13-30.4-33.3-33.3-17.7-2.5-33.3 2.5-49.8 17.5L248 76.9V348l15.6-2.2v-175.4z"/>
+                </svg>
+            </button>
+        </div>
+
+        <!-- 3. APP VIEW -->
+        <div id="app-view" class="hidden">
+            <!-- App Header Bar -->
+            <div id="app-header" class="w-full h-12 flex items-center p-3 text-white shadow-md">
+                <button id="back-to-start-btn" 
+                        class="text-4xl leading-none mr-4 px-2 hover:bg-white hover:bg-opacity-20 rounded transition-all"
+                        onclick="goToStartScreen()">
+                    &#x25C0;
+                </button>
+                <div id="app-title" class="text-xl font-light"></div>
+            </div>
+            <!-- App Content Area -->
+            <div id="app-content" class="flex-grow p-8 overflow-y-auto">
+                <h2 class="text-3xl font-light mb-4 text-gray-800" id="content-title"></h2>
+                <p class="text-gray-600" id="content-body"></p>
+
+                <!-- Sample App Content (Simulated) -->
+                <div id="calculator-app-content" class="bg-white p-6 rounded-lg shadow-xl mt-8 w-full max-w-sm">
+                    <div class="text-4xl text-right mb-4 border-b pb-2 text-gray-700" id="calculator-display">0</div>
+                    <div class="grid grid-cols-4 gap-3">
+                        <button class="calc-btn bg-gray-200 text-gray-800">C</button>
+                        <button class="calc-btn bg-gray-200 text-gray-800">+/-</button>
+                        <button class="calc-btn bg-gray-200 text-gray-800">%</button>
+                        <button class="calc-btn bg-blue-500 text-white">/</button>
+                        <button class="calc-btn">7</button>
+                        <button class="calc-btn">8</button>
+                        <button class="calc-btn">9</button>
+                        <button class="calc-btn bg-blue-500 text-white">*</button>
+                        <button class="calc-btn">4</button>
+                        <button class="calc-btn">5</button>
+                        <button class="calc-btn">6</button>
+                        <button class="calc-btn bg-blue-500 text-white">-</button>
+                        <button class="calc-btn">1</button>
+                        <button class="calc-btn">2</button>
+                        <button class="calc-btn">3</button>
+                        <button class="calc-btn bg-blue-500 text-white">+</button>
+                        <button class="calc-btn col-span-2">0</button>
+                        <button class="calc-btn">.</button>
+                        <button class="calc-btn bg-blue-700 text-white">=</button>
+                    </div>
+                </div>
+                <style>
+                    .calc-btn {
+                        padding: 15px 0;
+                        border-radius: 5px;
+                        font-size: 1.25rem;
+                        font-weight: 500;
+                        background-color: #f9f9f9;
+                        transition: background-color 0.1s;
+                        box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+                    }
+                    .calc-btn:hover {
+                        background-color: #e5e5e5;
+                    }
+                    .calc-btn.bg-blue-500:hover {
+                         background-color: #3b82f6; /* Darker blue on hover */
+                    }
+                </style>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        // --- DATA DEFINITION ---
+
+        const TILE_DATA = [
+            // Group 1: Microsoft Core Apps
+            { title: "Store", icon: "🛒", color: "#107C10", size: "medium" },
+            { title: "Mail", icon: "📧", color: "#0072C6", size: "wide" },
+            { title: "Calendar", icon: "📅", color: "#0072C6", size: "medium" },
+            { title: "People", icon: "👥", color: "#6A5AE3", size: "medium" },
+            { title: "Photos", icon: "🏞️", color: "#767676", size: "wide" },
+            
+            // Group 2: Tools & Utilities
+            { title: "Weather", icon: "🌤️", color: "#50BCEE", size: "large", isLive: true },
+            { title: "Calculator", icon: "🧮", color: "#999999", size: "medium", app: "Calculator" },
+            { title: "Maps", icon: "🗺️", color: "#0078D7", size: "medium" },
+            { title: "Skype", icon: "📞", color: "#00AFF0", size: "medium" },
+            { title: "Groove Music", icon: "🎵", color: "#FF4301", size: "wide" },
+            
+            // Group 3: Productivity
+            { title: "Office", icon: "💼", color: "#E03F3F", size: "medium" },
+            { title: "OneNote", icon: "📝", color: "#80397B", size: "medium" },
+            { title: "News", icon: "📰", color: "#F08A00", size: "wide" },
+            { title: "Settings", icon: "⚙️", color: "#000000", size: "medium", app: "Settings" },
+        ];
+        
+        // --- STATE & UI ELEMENTS ---
+
+        const bootScreen = document.getElementById('boot-screen');
+        const startScreen = document.getElementById('start-screen');
+        const appView = document.getElementById('app-view');
+        const appHeader = document.getElementById('app-header');
+        const appTitle = document.getElementById('app-title');
+        const contentTitle = document.getElementById('content-title');
+        const contentBody = document.getElementById('content-body');
+        const calculatorContent = document.getElementById('calculator-app-content');
+        const currentTimeElement = document.getElementById('current-time');
+        const tileContainer = document.getElementById('start-screen-tiles');
+        
+        let currentState = 'booting';
+        
+        // --- FUNCTIONS ---
+
+        /**
+         * Converts the TILE_DATA array into HTML tile elements.
+         */
+        function renderTiles() {
+            TILE_DATA.forEach(tile => {
+                const tileDiv = document.createElement('div');
+                tileDiv.className = `tile-container size-${tile.size} cursor-pointer`;
+                tileDiv.style.backgroundColor = tile.color;
+                tileDiv.setAttribute('data-app', tile.app || tile.title);
+                tileDiv.setAttribute('data-color', tile.color);
+                tileDiv.setAttribute('title', tile.title);
+                tileDiv.onclick = () => openApp(tile.app || tile.title, tile.color);
+
+                const contentDiv = document.createElement('div');
+                contentDiv.className = 'tile-content';
+
+                // Top part (Icon/Live Content)
+                const topDiv = document.createElement('div');
+                topDiv.className = tile.size === 'small' ? 'text-2xl' : 'tile-icon';
+                
+                if (tile.isLive) {
+                    // Simulate Live Tile content for Weather
+                    topDiv.innerHTML = `
+                        <div class="live-tile-update">
+                            <p class="text-4xl mb-1">22°C</p>
+                            <p class="text-sm">Sunny</p>
+                        </div>
+                    `;
+                } else {
+                    topDiv.innerText = tile.icon;
+                }
+                contentDiv.appendChild(topDiv);
+
+                // Bottom part (Title)
+                const titleP = document.createElement('p');
+                titleP.className = 'tile-title self-end';
+                titleP.innerText = tile.title;
+                contentDiv.appendChild(titleP);
+
+                tileDiv.appendChild(contentDiv);
+                tileContainer.appendChild(tileDiv);
+            });
+        }
+
+        /**
+         * Simulates the Windows 8.1 boot sequence and transition.
+         */
+        function bootUp() {
+            setTimeout(() => {
+                // Step 1: Fade out boot screen and show start screen
+                bootScreen.style.opacity = '0';
+                startScreen.classList.remove('hidden');
+                
+                // Set the initial Start Screen background
+                startScreen.style.backgroundColor = 'var(--win-blue)'; 
+
+                // Step 2: Transition complete
+                setTimeout(() => {
+                    bootScreen.classList.add('hidden');
+                    currentState = 'start_screen';
+                    
+                }, 1000); // Wait for fade-out transition
+                
+            }, 3000); // 3 seconds for the boot animation
+        }
+        
+        /**
+         * Updates the digital clock in the corner.
+         */
+        function updateClock() {
+            const now = new Date();
+            const timeString = now.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+            currentTimeElement.textContent = timeString;
+        }
+
+        /**
+         * Switches the view to the selected application.
+         * @param {string} appName - The name of the app to open.
+         * @param {string} color - The accent color of the app tile.
+         */
+        function openApp(appName, color) {
+            startScreen.classList.add('hidden');
+            appView.classList.remove('hidden');
+            appView.style.display = 'flex';
+            currentState = 'app_open';
+
+            // Set app header color
+            appHeader.style.backgroundColor = color;
+            appTitle.textContent = appName;
+            contentTitle.textContent = appName;
+
+            // Hide/show specific app content
+            calculatorContent.classList.add('hidden');
+            contentBody.classList.remove('hidden');
+            
+            switch (appName) {
+                case 'Calculator':
+                    contentTitle.textContent = "Calculator App";
+                    contentBody.classList.add('hidden');
+                    calculatorContent.classList.remove('hidden');
+                    break;
+                case 'Desktop':
+                    contentTitle.textContent = "Desktop (Simulated)";
+                    contentBody.textContent = "Welcome to the classic Windows Desktop. In this simplified view, you can only return to the Start Screen.";
+                    break;
+                case 'Mail':
+                    contentTitle.textContent = "Mail App";
+                    contentBody.textContent = "This is the immersive Mail app. Everything is full screen, clean, and optimized for touch. No complex menus here!";
+                    break;
+                case 'Weather':
+                    contentTitle.textContent = "Weather App";
+                    contentBody.textContent = "Your live weather forecast: Mostly Sunny, 22°C. Optimized for quick glances and full-screen data display.";
+                    break;
+                case 'Settings':
+                    contentTitle.textContent = "PC Settings";
+                    contentBody.textContent = "Changing settings is now a touch-friendly experience. Swipe from the right (or click the Charms bar) to access quick actions.";
+                    break;
+                default:
+                    contentBody.textContent = `You've opened the ${appName} app. This app is running in the full-screen Modern UI environment. Click the back arrow to return to the Start Screen.`;
+            }
+        }
+
+        /**
+         * Switches the view back to the Start Screen.
+         */
+        function goToStartScreen() {
+            appView.classList.add('hidden');
+            appView.style.display = 'none';
+            startScreen.classList.remove('hidden');
+            currentState = 'start_screen';
+        }
+
+        /**
+         * Simulated Calculator Logic (very basic)
+         */
+        function setupCalculator() {
+            let display = document.getElementById('calculator-display');
+            let currentInput = '0';
+            let operator = null;
+            let firstOperand = null;
+            let waitingForSecond = false;
+
+            document.querySelectorAll('.calc-btn').forEach(button => {
+                button.addEventListener('click', () => {
+                    const value = button.textContent;
+
+                    if (value >= '0' && value <= '9') {
+                        if (waitingForSecond) {
+                            currentInput = value;
+                            waitingForSecond = false;
+                        } else {
+                            currentInput = currentInput === '0' ? value : currentInput + value;
+                        }
+                    } else if (value === '.') {
+                        if (!currentInput.includes('.')) {
+                            currentInput += '.';
+                        }
+                    } else if (value === 'C') {
+                        currentInput = '0';
+                        operator = null;
+                        firstOperand = null;
+                        waitingForSecond = false;
+                    } else if (['+', '-', '*', '/', '='].includes(value)) {
+                        if (firstOperand === null) {
+                            firstOperand = parseFloat(currentInput);
+                        } else if (operator) {
+                            const secondOperand = parseFloat(currentInput);
+                            if (operator === '+') firstOperand += secondOperand;
+                            if (operator === '-') firstOperand -= secondOperand;
+                            if (operator === '*') firstOperand *= secondOperand;
+                            if (operator === '/') firstOperand /= secondOperand;
+                        }
+
+                        operator = value === '=' ? null : value;
+                        currentInput = firstOperand.toString().length > 10 ? firstOperand.toExponential(4) : firstOperand.toString();
+                        waitingForSecond = true;
+                    }
+
+                    display.textContent = currentInput;
+                });
+            });
+        }
+
+
+        // --- INITIALIZATION ---
+        window.onload = () => {
+            renderTiles();
+            bootUp();
+            setupCalculator();
+            
+            // Initial clock display and interval setup
+            updateClock();
+            setInterval(updateClock, 1000);
+        };
+    </script>
+</body>
+</html>
