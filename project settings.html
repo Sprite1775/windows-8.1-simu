@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Windows 8.1 Settings Simulator</title>
+    <!-- Load Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Load Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        /* Custom styles to enforce the Windows 8.1 aesthetic */
+        body {
+            font-family: 'Segoe UI', 'Inter', sans-serif;
+            background-color: #1a1a1a; /* Dark background */
+            color: #ffffff;
+            transition: background-color 0.3s;
+        }
+
+        /* Enforce high contrast for flat design */
+        .category-item {
+            transition: background-color 0.15s ease-in-out;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .category-item:hover {
+            background-color: #383838;
+        }
+
+        .category-item.active {
+            background-color: #0078D7; /* Windows 8 Blue accent */
+        }
+
+        /* Styling for the main content area */
+        #content-panel h2 {
+            border-bottom: 2px solid #0078D7;
+            padding-bottom: 0.5rem;
+        }
+
+        /* Ensure the main view takes full screen height */
+        #app-container {
+            height: 100vh;
+        }
+
+        /* Large, touch-friendly typography */
+        .settings-title {
+            font-size: 2.5rem; /* Large title text */
+            font-weight: 300; /* Light weight, typical of Segoe UI */
+            margin-bottom: 1rem;
+        }
+    </style>
+</head>
+<body>
+
+<div id="app-container" class="flex flex-col md:flex-row overflow-hidden">
+
+    <!-- Left Navigation Panel (Categories) -->
+    <div id="nav-panel" class="w-full md:w-80 flex-shrink-0 bg-[#2b2b2b] overflow-y-auto">
+        <div class="p-6">
+            <h1 class="settings-title">Settings</h1>
+            <div id="category-list">
+                <!-- Categories will be injected here -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Right Content Panel -->
+    <div id="content-panel" class="flex-grow p-6 overflow-y-auto bg-[#1a1a1a]">
+        <!-- Content will be injected here -->
+        <div class="h-full flex items-center justify-center text-gray-500 text-lg md:text-xl">
+            Select a category to view settings.
+        </div>
+    </div>
+
+</div>
+
+<script>
+    // --- Data Model ---
+    const settingsCategories = [
+        {
+            id: 'system',
+            title: 'System',
+            icon: 'Monitor',
+            color: '#FFB900', // Gold/Yellow accent
+            content: `
+                <div class="space-y-6">
+                    <h3 class="text-xl font-medium">Display & Notifications</h3>
+                    <p class="text-gray-400">Manage screen resolution, scaling, and action center settings.</p>
+
+                    <h3 class="text-xl font-medium">Power & Sleep</h3>
+                    <p class="text-gray-400">Adjust when the screen turns off and when the PC goes to sleep.</p>
+
+                    <h3 class="text-xl font-medium">About</h3>
+                    <p class="text-gray-400">View information about your version of Windows 8.1, processor, and installed RAM.</p>
+                </div>
+            `
+        },
+        {
+            id: 'devices',
+            title: 'Devices',
+            icon: 'Printer',
+            color: '#00CC66', // Green accent
+            content: `
+                <div class="space-y-6">
+                    <h3 class="text-xl font-medium">Printers & Scanners</h3>
+                    <p class="text-gray-400">Add or remove printing devices.</p>
+
+                    <h3 class="text-xl font-medium">Mouse & Touchpad</h3>
+                    <p class="text-gray-400">Configure primary button, scroll speed, and other pointer settings.</p>
+
+                    <h3 class="text-xl font-medium">Bluetooth</h3>
+                    <p class="text-gray-400">Manage wireless connections to keyboards, mice, and other peripherals.</p>
+                </div>
+            `
+        },
+        {
+            id: 'personalization',
+            title: 'Personalization',
+            icon: 'Palette',
+            color: '#E81123', // Red accent
+            content: `
+                <div class="space-y-6">
+                    <h3 class="text-xl font-medium">Background</h3>
+                    <p class="text-gray-400">Change your desktop and lock screen images.</p>
+
+                    <h3 class="text-xl font-medium">Colors</h3>
+                    <p class="text-gray-400">Select an accent color for tiles and window borders.</p>
+
+                    <h3 class="text-xl font-medium">Start Screen</h3>
+                    <p class="text-gray-400">Customize tile layout and grouping on the Start screen.</p>
+                </div>
+            `
+        },
+        {
+            id: 'network',
+            title: 'Network & Internet',
+            icon: 'Wifi',
+            color: '#0078D7', // Blue accent
+            content: `
+                <div class="space-y-6">
+                    <h3 class="text-xl font-medium">Wi-Fi</h3>
+                    <p class="text-gray-400">View available networks and manage saved connections.</p>
+
+                    <h3 class="text-xl font-medium">VPN</h3>
+                    <p class="text-gray-400">Configure Virtual Private Network settings.</p>
+
+                    <h3 class="text-xl font-medium">Usage</h3>
+                    <p class="text-gray-400">See how much data you've used in the last 30 days.</p>
+                </div>
+            `
+        },
+        {
+            id: 'accounts',
+            title: 'Accounts',
+            icon: 'User',
+            color: '#A200FF', // Purple accent
+            content: `
+                <div class="space-y-6">
+                    <h3 class="text-xl font-medium">Your account</h3>
+                    <p class="text-gray-400">Sign in with a Microsoft account or switch to a local account.</p>
+
+                    <h3 class="text-xl font-medium">Sign-in options</h3>
+                    <p class="text-gray-400">Set up a picture password, PIN, or conventional password.</p>
+
+                    <h3 class="text-xl font-medium">Family & other users</h3>
+                    <p class="text-gray-400">Manage user profiles and parental controls.</p>
+                </div>
+            `
+        },
+    ];
+
+    // --- DOM Elements ---
+    const categoryList = document.getElementById('category-list');
+    const contentPanel = document.getElementById('content-panel');
+
+    let activeCategoryId = null;
+
+    // --- Functions ---
+
+    /**
+     * Renders the list of categories in the left navigation panel.
+     */
+    function renderCategories() {
+        categoryList.innerHTML = '';
+        settingsCategories.forEach(category => {
+            const item = document.createElement('div');
+            item.className = `category-item flex items-center p-4 cursor-pointer rounded-lg mb-1 transition-all`;
+            item.id = `nav-${category.id}`;
+            item.dataset.id = category.id;
+            item.onclick = () => showCategory(category.id);
+
+            // --- FIX START: Correctly access the icon component from the global lucide object ---
+            const IconComponent = lucide[category.icon];
+            let iconHtml = '';
+
+            if (IconComponent && typeof IconComponent.toSvg === 'function') {
+                iconHtml = IconComponent.toSvg({
+                    width: 32,
+                    height: 32,
+                    class: 'mr-4 flex-shrink-0',
+                    style: `color: ${category.color};`
+                });
+            } else {
+                console.error('Lucide icon not found or invalid:', category.icon);
+                // Fallback SVG (generic box) to prevent script crash
+                iconHtml = `<svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-4 flex-shrink-0" style="color: ${category.color};"><rect width="20" height="15" x="2" y="3" rx="2"/><path d="M6 18h12"/></svg>`;
+            }
+            // --- FIX END ---
+
+            item.innerHTML = `
+                ${iconHtml}
+                <span class="text-lg font-normal">${category.title}</span>
+            `;
+
+            categoryList.appendChild(item);
+        });
+
+        // Automatically show the first category on load
+        if (settingsCategories.length > 0) {
+            showCategory(settingsCategories[0].id);
+        }
+    }
+
+    /**
+     * Switches the content panel to show the selected category's settings.
+     * @param {string} id - The ID of the category to show.
+     */
+    function showCategory(id) {
+        // 1. Update Navigation Bar State
+        if (activeCategoryId) {
+            const oldActive = document.getElementById(`nav-${activeCategoryId}`);
+            if (oldActive) {
+                oldActive.classList.remove('active');
+            }
+        }
+
+        const newActive = document.getElementById(`nav-${id}`);
+        if (newActive) {
+            newActive.classList.add('active');
+            activeCategoryId = id;
+        }
+
+        // 2. Update Content Panel
+        const category = settingsCategories.find(c => c.id === id);
+
+        if (category) {
+            contentPanel.innerHTML = `
+                <h2 class="text-4xl font-light mb-8">${category.title}</h2>
+                <div class="content-body text-gray-200">
+                    ${category.content}
+                </div>
+            `;
+        } else {
+            contentPanel.innerHTML = `
+                <div class="h-full flex items-center justify-center text-red-500 text-xl">
+                    Error: Settings category not found.
+                </div>
+            `;
+        }
+        // Removed unnecessary lucide.createIcons() call here as icons are now dynamically rendered in renderCategories.
+    }
+
+
+    // --- Initialization ---
+    window.onload = function() {
+        renderCategories();
+    };
+
+</script>
+
+</body>
+</html>
